@@ -30,22 +30,40 @@ def get_access_token():
 
 
 def call_gemma4(prompt: str):
-    token = get_access_token()
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    url = f"https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/endpoints/openapi/chat/completions"
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    endpoint = "aiplatform.googleapis.com"
+    region = "global"
+    model = "google/gemma-4-26b-a4b-it-maas"
+
+    url = f"https://{endpoint}/v1/projects/{project_id}/locations/{region}/endpoints/openapi/chat/completions"
 
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {get_access_token()}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": "google/gemma-4-26b-a4b-it-maas",
-        "messages": [{"role": "user", "content": prompt}]
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 2048
     }
 
     response = requests.post(url, headers=headers, json=payload)
-    return response.json()["choices"][0]["message"]["content"]
+    response_json = response.json()
+
+    # Log full response for debugging
+    print("MaaS API Response:", json.dumps(response_json, indent=2))
+
+    # Handle different response formats
+    if "choices" in response_json:
+        choices = response_json["choices"]
+        if isinstance(choices, list) and len(choices) > 0:
+            return choices[0]["message"]["content"]
+        elif isinstance(choices, dict):
+            return choices["message"]["content"]
+
+    # Fallback
+    raise Exception(f"Unexpected response format: {response_json}")
 
 app = FastAPI(
     title="BiasScan API",
