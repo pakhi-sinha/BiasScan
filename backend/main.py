@@ -15,6 +15,8 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import requests
 import subprocess
+import google.auth
+import google.auth.transport.requests
 
 # Load environment variables from .env
 load_dotenv()
@@ -22,11 +24,21 @@ load_dotenv()
 # ── Gemma 4 MaaS Configuration ──────────────────────────────────────
 
 def get_access_token():
-    result = subprocess.run(
-        ["gcloud.cmd", "auth", "print-access-token"],
-        capture_output=True, text=True, shell=True
-    )
-    return result.stdout.strip()
+    try:
+        # Works on Cloud Run (metadata server)
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        request = google.auth.transport.requests.Request()
+        credentials.refresh(request)
+        return credentials.token
+    except Exception:
+        # Fallback for local Windows development
+        result = subprocess.run(
+            ["gcloud.cmd", "auth", "print-access-token"],
+            capture_output=True, text=True, shell=True
+        )
+        return result.stdout.strip()
 
 
 def call_gemma4(prompt: str):
